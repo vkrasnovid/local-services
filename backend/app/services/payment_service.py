@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 from decimal import Decimal
@@ -48,7 +47,7 @@ async def create_payment(
         },
     }
 
-    yoo_payment = await asyncio.to_thread(YooPayment.create, payment_data, idempotence_key)
+    yoo_payment = YooPayment.create(payment_data, idempotence_key)
 
     # Update the payment record in DB with yukassa_payment_id
     result = await db.execute(
@@ -97,8 +96,7 @@ async def capture_payment(db: AsyncSession, payment_id: uuid.UUID) -> bool:
                 "currency": "RUB",
             },
         }
-        yoo_response = await asyncio.to_thread(
-            YooPayment.capture,
+        yoo_response = YooPayment.capture(
             payment.yukassa_payment_id,
             capture_data,
             idempotence_key,
@@ -126,8 +124,7 @@ async def cancel_payment(db: AsyncSession, payment_id: uuid.UUID) -> bool:
 
     try:
         idempotence_key = str(uuid.uuid4())
-        yoo_response = await asyncio.to_thread(
-            YooPayment.cancel,
+        yoo_response = YooPayment.cancel(
             payment.yukassa_payment_id,
             idempotence_key,
         )
@@ -163,7 +160,7 @@ async def refund_payment(db: AsyncSession, payment_id: uuid.UUID) -> bool:
                 "currency": "RUB",
             },
         }
-        refund_response = await asyncio.to_thread(Refund.create, refund_data, idempotence_key)
+        refund_response = Refund.create(refund_data, idempotence_key)
         if refund_response.status == "succeeded":
             payment.status = "refunded"
             payment.refunded_at = datetime.now(timezone.utc)
@@ -188,7 +185,7 @@ async def get_payment_status(db: AsyncSession, payment_id: uuid.UUID) -> str | N
         return None
 
     try:
-        yoo_payment = await asyncio.to_thread(YooPayment.find_one, payment.yukassa_payment_id)
+        yoo_payment = YooPayment.find_one(payment.yukassa_payment_id)
         if yoo_payment.status != payment.status:
             payment.status = yoo_payment.status
             if yoo_payment.status == "succeeded" and not payment.paid_at:

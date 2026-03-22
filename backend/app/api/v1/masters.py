@@ -566,7 +566,7 @@ async def create_payout(
     )
     db.add(payout)
 
-    profile.balance = profile.balance - Decimal(str(data.amount))
+    profile.balance = profile.balance - Decimal(str(amount))
     db.add(profile)
 
     await db.commit()
