@@ -5,7 +5,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/app_button.dart';
-import 'my_services_screen.dart';
+import 'master_services_screen.dart';
 
 class AddServiceScreen extends ConsumerStatefulWidget {
   final String? serviceId;

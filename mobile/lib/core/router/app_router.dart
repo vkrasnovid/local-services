@@ -15,11 +15,11 @@ import '../../features/chat/screens/chat_list_screen.dart';
 import '../../features/chat/screens/chat_room_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
-import '../../features/profile/screens/master_dashboard_screen.dart';
-import '../../features/profile/screens/my_services_screen.dart';
-import '../../features/profile/screens/add_service_screen.dart';
-import '../../features/profile/screens/earnings_screen.dart';
-import '../../features/profile/screens/booking_requests_screen.dart';
+import '../../features/master/screens/master_dashboard_screen.dart';
+import '../../features/master/screens/master_services_screen.dart';
+import '../../features/master/screens/add_service_screen.dart';
+import '../../features/master/screens/earnings_screen.dart';
+import '../../features/master/screens/booking_requests_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../providers/auth_provider.dart';
 import 'shell_screen.dart';
@@ -92,6 +92,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const MyServicesScreen(),
           ),
           GoRoute(
+            path: '/master/earnings',
+            builder: (context, state) => const EarningsScreen(),
+          ),
+          GoRoute(
             path: '/master/chats',
             builder: (context, state) => const ChatListScreen(),
           ),
@@ -158,10 +162,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => AddServiceScreen(
           serviceId: state.pathParameters['id'],
         ),
-      ),
-      GoRoute(
-        path: '/master/earnings',
-        builder: (context, state) => const EarningsScreen(),
       ),
       GoRoute(
         path: '/notifications',
