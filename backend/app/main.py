@@ -4,6 +4,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 
@@ -32,6 +34,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from app.core.limiter import limiter as _limiter
+
+app.state.limiter = _limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # API v1 routers
 from app.api.v1 import auth, masters, slots, bookings, reviews, chat, notifications, admin, categories, upload, payments, webhooks

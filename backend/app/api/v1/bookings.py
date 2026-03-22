@@ -61,6 +61,13 @@ async def create_booking(
 
     master_profile = service.master
 
+    # Prevent self-booking
+    if user.id == master_profile.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot book your own service",
+        )
+
     # Verify slot exists and is not booked
     slot_result = await db.execute(
         select(TimeSlot).where(TimeSlot.id == data.slot_id)
@@ -352,6 +359,14 @@ async def update_booking_status(
             detail=f"Cannot transition from '{booking.status}' to '{data.status}'",
         )
 
+    # Role-based transition control
+    # Client can only cancel; master can confirm, start, complete, cancel
+    if is_client and data.status != "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the master can confirm, start, or complete a booking",
+        )
+
     booking.status = data.status
 
     # On cancel: unbook slot + cancel YuKassa payment
@@ -370,13 +385,19 @@ async def update_booking_status(
         if booking.payment and booking.payment.yukassa_payment_id:
             await payment_service.cancel_payment(db, booking.payment.id)
 
-    # On complete: capture held YuKassa payment
+    # On complete: capture held YuKassa payment and credit master balance
     if data.status == "completed":
         if booking.payment and booking.payment.yukassa_payment_id:
             await payment_service.capture_payment(db, booking.payment.id)
         elif booking.payment:
             booking.payment.status = "captured"
             db.add(booking.payment)
+
+        # Credit master balance on completion
+        if booking.payment:
+            master = booking.master
+            master.balance = master.balance + booking.payment.master_amount
+            db.add(master)
 
     db.add(booking)
     await db.commit()

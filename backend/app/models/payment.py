@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -55,7 +55,7 @@ class Payment(BaseModel):
     )
 
     # Transient attribute for passing confirmation_url in responses
-    _confirmation_url: Optional[str] = None
+    _confirmation_url: ClassVar[Optional[str]] = None
 
     @property
     def confirmation_url(self) -> Optional[str]:

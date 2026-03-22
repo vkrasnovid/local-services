@@ -43,12 +43,8 @@ async def yukassa_webhook(
     payload: WebhookPayload,
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify source IP
+    # Verify source IP from actual socket connection (never trust X-Forwarded-For)
     client_ip = request.client.host if request.client else None
-    # Also check X-Forwarded-For for reverse-proxy setups
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
 
     if client_ip and not _is_trusted_ip(client_ip):
         logger.warning("Webhook request from untrusted IP: %s", client_ip)
@@ -87,17 +83,11 @@ async def yukassa_webhook(
         payment.status = "succeeded"
         payment.paid_at = datetime.now(timezone.utc)
 
-        # Credit master balance
+        # Update booking status but do NOT credit master balance here.
+        # Balance is credited only when booking is completed (via booking status update).
         if payment.booking:
             booking = payment.booking
             booking.status = "confirmed" if booking.status == "pending" else booking.status
-            master_result = await db.execute(
-                select(MasterProfile).where(MasterProfile.id == booking.master_id)
-            )
-            master = master_result.scalar_one_or_none()
-            if master:
-                master.balance += payment.master_amount
-                db.add(master)
 
         logger.info("Payment %s succeeded, booking updated", yukassa_id)
 

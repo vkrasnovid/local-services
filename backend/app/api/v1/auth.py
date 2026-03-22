@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, status
+from app.core.limiter import limiter
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from app.models.notification import FcmToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import (
+    FcmTokenRequest,
     LoginRequest,
     LogoutRequest,
     MessageResponse,
@@ -35,7 +37,8 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Check uniqueness
     filters = []
     if data.phone:
@@ -68,7 +71,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.phone == data.phone))
     user = result.scalar_one_or_none()
 
@@ -247,36 +251,27 @@ async def switch_role(
 
 @router.post("/fcm-token", response_model=MessageResponse)
 async def save_fcm_token(
-    data: dict,
+    data: FcmTokenRequest,
     user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    token = data.get("token")
-    device_info = data.get("device_info")
-
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="FCM token is required",
-        )
-
     # Upsert: check if this user+token combo exists
     result = await db.execute(
         select(FcmToken).where(
             FcmToken.user_id == user.id,
-            FcmToken.token == token,
+            FcmToken.token == data.token,
         )
     )
     existing = result.scalar_one_or_none()
 
     if existing:
-        existing.device_info = device_info
+        existing.device_info = data.device_info
         db.add(existing)
     else:
         fcm = FcmToken(
             user_id=user.id,
-            token=token,
-            device_info=device_info,
+            token=data.token,
+            device_info=data.device_info,
         )
         db.add(fcm)
 

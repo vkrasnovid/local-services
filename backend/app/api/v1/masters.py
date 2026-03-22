@@ -17,6 +17,7 @@ from app.models.portfolio import PortfolioImage
 from app.models.review import Review
 from app.models.service import Service
 from app.models.user import User
+from app.schemas.payment import PayoutCreate
 from app.schemas.master import (
     MasterDetail,
     MasterListItem,
@@ -528,19 +529,10 @@ async def get_balance(
 
 @router.post("/me/payout", status_code=status.HTTP_201_CREATED)
 async def create_payout(
-    data: dict,
+    data: PayoutCreate,
     user: User = Depends(require_role("master")),
     db: AsyncSession = Depends(get_db),
 ):
-    amount = data.get("amount")
-    card_last4 = data.get("card_last4")
-
-    if not amount or amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid payout amount",
-        )
-
     result = await db.execute(
         select(MasterProfile).where(MasterProfile.user_id == user.id)
     )
@@ -551,7 +543,7 @@ async def create_payout(
             detail="Master profile not found",
         )
 
-    if float(profile.balance) < amount:
+    if float(profile.balance) < data.amount:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Insufficient balance",
@@ -559,9 +551,9 @@ async def create_payout(
 
     payout = Payout(
         master_id=profile.id,
-        amount=Decimal(str(amount)),
+        amount=Decimal(str(data.amount)),
         status="pending",
-        card_last4=card_last4,
+        card_last4=data.card_last4,
     )
     db.add(payout)
 

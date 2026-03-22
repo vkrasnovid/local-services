@@ -1,7 +1,10 @@
 import asyncio
+import os
 import sqlite3
 import uuid as uuid_mod
 from uuid import uuid4
+
+os.environ.setdefault("ENVIRONMENT", "testing")
 
 import pytest
 from httpx import ASGITransport, AsyncClient

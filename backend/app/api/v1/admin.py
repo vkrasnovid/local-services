@@ -634,9 +634,6 @@ async def update_payout(
 
     if data.status == "completed":
         payout.processed_at = datetime.now(timezone.utc)
-        # Deduct from master balance
-        master = payout.master
-        master.balance = master.balance - payout.amount
 
     await db.commit()
     await db.refresh(payout)
