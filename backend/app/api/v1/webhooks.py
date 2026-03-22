@@ -1,4 +1,7 @@
+import hashlib
+import hmac
 import ipaddress
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -7,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.booking import Booking
 from app.models.master import MasterProfile
@@ -37,21 +41,47 @@ def _is_trusted_ip(client_ip: str) -> bool:
         return False
 
 
+def _verify_webhook_signature(body: bytes, secret: str, signature: str) -> bool:
+    """Verify HMAC-SHA256 webhook signature."""
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
 @router.post("/yukassa")
 async def yukassa_webhook(
     request: Request,
-    payload: WebhookPayload,
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify source IP from actual socket connection (never trust X-Forwarded-For)
+    # Verify source IP — deny by default if client is None
     client_ip = request.client.host if request.client else None
 
-    if client_ip and not _is_trusted_ip(client_ip):
+    if not client_ip or not _is_trusted_ip(client_ip):
         logger.warning("Webhook request from untrusted IP: %s", client_ip)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Untrusted source IP",
         )
+
+    # Verify HMAC signature
+    body = await request.body()
+    webhook_secret = settings.YUKASSA_WEBHOOK_SECRET
+    if not webhook_secret:
+        logger.error("YUKASSA_WEBHOOK_SECRET not configured, rejecting webhook")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Webhook verification not configured",
+        )
+
+    signature = request.headers.get("x-yukassa-signature", "")
+    if not signature or not _verify_webhook_signature(body, webhook_secret, signature):
+        logger.warning("Webhook signature verification failed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid webhook signature",
+        )
+
+    # Parse payload after verification
+    payload = WebhookPayload.model_validate(json.loads(body))
 
     payment_data = payload.object
     yukassa_id = payment_data.get("id")
