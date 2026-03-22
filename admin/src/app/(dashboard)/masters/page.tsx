@@ -28,6 +28,16 @@ import { Check, X, Eye } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
+function safeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "#";
+    return url;
+  } catch {
+    return "#";
+  }
+}
+
 const statusBadgeVariant: Record<string, "warning" | "success" | "destructive"> = {
   pending: "warning",
   verified: "success",
@@ -348,7 +358,7 @@ export default function MastersPage() {
                     {selectedMaster.verification_docs.map((doc, index) => (
                       <a
                         key={index}
-                        href={doc}
+                        href={safeUrl(doc)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block rounded-md border p-2 text-sm text-blue-600 hover:bg-muted truncate"

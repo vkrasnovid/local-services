@@ -10,14 +10,17 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
-  }, [status, router]);
+    if (status === "authenticated" && session?.user?.role !== "admin") {
+      router.push("/login");
+    }
+  }, [status, session, router]);
 
   if (status === "loading") {
     return (
@@ -28,6 +31,7 @@ export default function DashboardLayout({
   }
 
   if (status === "unauthenticated") return null;
+  if (session?.user?.role !== "admin") return null;
 
   return (
     <div className="flex h-screen bg-gray-50">
