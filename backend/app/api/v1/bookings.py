@@ -61,9 +61,11 @@ async def create_booking(
 
     master_profile = service.master
 
-    # Verify slot exists and is not booked
+    # Verify slot exists and is not booked (SELECT FOR UPDATE to prevent race condition)
     slot_result = await db.execute(
-        select(TimeSlot).where(TimeSlot.id == data.slot_id)
+        select(TimeSlot)
+        .where(TimeSlot.id == data.slot_id)
+        .with_for_update()
     )
     slot = slot_result.scalar_one_or_none()
     if not slot:

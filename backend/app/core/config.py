@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     YUKASSA_SHOP_ID: str = "test"
     YUKASSA_SECRET_KEY: str = "test"
     YUKASSA_RETURN_URL: str = "https://app.example.com/payment/return"
+    YUKASSA_WEBHOOK_SECRET: str = ""
 
     # FCM
     FCM_SERVER_KEY: str = ""
