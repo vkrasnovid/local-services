@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # YuKassa
-    YUKASSA_SHOP_ID: str = ""
-    YUKASSA_SECRET_KEY: str = ""
+    YUKASSA_SHOP_ID: str = "test"
+    YUKASSA_SECRET_KEY: str = "test"
+    YUKASSA_RETURN_URL: str = "https://app.example.com/payment/return"
 
     # FCM
     FCM_SERVER_KEY: str = ""

@@ -34,7 +34,7 @@ app.add_middleware(
 )
 
 # API v1 routers
-from app.api.v1 import auth, masters, slots, bookings, reviews, chat, notifications, admin, categories, upload, payments
+from app.api.v1 import auth, masters, slots, bookings, reviews, chat, notifications, admin, categories, upload, payments, webhooks
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(categories.router, prefix="/api/v1/categories", tags=["categories"])
@@ -47,6 +47,7 @@ app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(upload.router, prefix="/api/v1/upload", tags=["upload"])
 app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
+app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["webhooks"])
 
 # WebSocket
 from app.ws.chat import chat_websocket

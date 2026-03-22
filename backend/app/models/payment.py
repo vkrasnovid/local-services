@@ -54,6 +54,17 @@ class Payment(BaseModel):
         "Booking", back_populates="payment"
     )
 
+    # Transient attribute for passing confirmation_url in responses
+    _confirmation_url: Optional[str] = None
+
+    @property
+    def confirmation_url(self) -> Optional[str]:
+        return self._confirmation_url
+
+    @confirmation_url.setter
+    def confirmation_url(self, value: str) -> None:
+        self._confirmation_url = value
+
     def __repr__(self) -> str:
         return f"<Payment {self.id} status={self.status}>"
 

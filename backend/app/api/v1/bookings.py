@@ -26,6 +26,7 @@ from app.schemas.booking import (
     BookingStatusUpdate,
 )
 from app.schemas.master import PaginatedResponse, UserBrief
+from app.services import payment_service
 
 router = APIRouter()
 
@@ -109,7 +110,7 @@ async def create_booking(
     )
     db.add(chat_room)
 
-    # Create payment stub
+    # Create payment record
     platform_fee = service.price * Decimal(str(settings.PLATFORM_FEE_PERCENT)) / Decimal("100")
     master_amount = service.price - platform_fee
 
@@ -121,6 +122,19 @@ async def create_booking(
         status="pending",
     )
     db.add(payment)
+    await db.flush()
+
+    # Create real YuKassa payment (hold, capture=False)
+    try:
+        payment_result = await payment_service.create_payment(
+            db=db,
+            booking_id=booking.id,
+            amount=service.price,
+            description=f"Оплата услуги: {service.name}",
+        )
+    except Exception:
+        # If YuKassa call fails, still commit the booking with pending payment
+        payment_result = None
 
     await db.commit()
 
@@ -135,6 +149,11 @@ async def create_booking(
         )
     )
     booking = result.unique().scalar_one()
+
+    # Attach confirmation_url to the response if available
+    if payment_result and payment_result.get("confirmation_url"):
+        booking.payment.confirmation_url = payment_result["confirmation_url"]
+
     return booking
 
 
@@ -335,7 +354,7 @@ async def update_booking_status(
 
     booking.status = data.status
 
-    # On cancel: unbook slot
+    # On cancel: unbook slot + cancel YuKassa payment
     if data.status == "cancelled":
         booking.cancel_reason = data.cancel_reason
         booking.cancelled_by = "client" if is_client else "master"
@@ -348,9 +367,14 @@ async def update_booking_status(
             slot.is_booked = False
             db.add(slot)
 
-    # On complete: stub capture payment
+        if booking.payment and booking.payment.yukassa_payment_id:
+            await payment_service.cancel_payment(db, booking.payment.id)
+
+    # On complete: capture held YuKassa payment
     if data.status == "completed":
-        if booking.payment:
+        if booking.payment and booking.payment.yukassa_payment_id:
+            await payment_service.capture_payment(db, booking.payment.id)
+        elif booking.payment:
             booking.payment.status = "captured"
             db.add(booking.payment)
 

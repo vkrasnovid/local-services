@@ -1,5 +1,4 @@
 import math
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_active_user, require_role
 from app.models import Booking, MasterProfile, Payment, User
-from app.schemas.payment import PaymentResponse, TransactionItem, WebhookPayload
+from app.schemas.payment import PaymentResponse, TransactionItem
+from app.services import payment_service
 
 router = APIRouter()
 
@@ -57,45 +57,41 @@ async def get_payment(
     return PaymentResponse.model_validate(payment)
 
 
-@router.post("/webhook")
-async def payment_webhook(
-    payload: WebhookPayload,
+@router.post("/{booking_id}/refund")
+async def refund_payment(
+    booking_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
 ):
-    payment_data = payload.object
-    yukassa_id = payment_data.get("id")
-
-    if not yukassa_id:
+    """Request a refund for a booking's payment (admin only)."""
+    payment_result = await db.execute(
+        select(Payment).where(Payment.booking_id == booking_id)
+    )
+    payment = payment_result.scalar_one_or_none()
+    if not payment:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing payment id in webhook payload",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment not found",
         )
 
-    result = await db.execute(
-        select(Payment).where(Payment.yukassa_payment_id == yukassa_id)
-    )
-    payment = result.scalar_one_or_none()
-    if not payment:
-        # Payment not found, but return ok to avoid retries
-        return {"status": "ok"}
+    if payment.status != "succeeded":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot refund payment with status '{payment.status}'",
+        )
 
-    event = payload.event
-    if event == "payment.succeeded":
-        payment.status = "succeeded"
-        payment.paid_at = datetime.now(timezone.utc)
-    elif event == "payment.canceled" or event == "payment.cancelled":
-        payment.status = "cancelled"
-    elif event == "refund.succeeded":
-        payment.status = "refunded"
-        payment.refunded_at = datetime.now(timezone.utc)
-    else:
-        # Update status from event type
-        status_str = event.split(".")[-1] if "." in event else event
-        payment.status = status_str
+    success = await payment_service.refund_payment(db, payment.id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to process refund with payment provider",
+        )
 
     await db.commit()
 
-    return {"status": "ok"}
+    # Reload payment
+    await db.refresh(payment)
+    return PaymentResponse.model_validate(payment)
 
 
 @router.get("/transactions", response_model=None)
