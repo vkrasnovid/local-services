@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -14,6 +14,7 @@ class RegisterRequest(BaseModel):
     first_name: str
     last_name: Optional[str] = None
     city: Optional[str] = None
+    role: Optional[Literal["client", "master"]] = "client"
 
     @model_validator(mode="after")
     def require_phone_or_email(self):
@@ -25,15 +26,22 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    phone: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     password: str
+
+    @model_validator(mode="after")
+    def require_email_or_phone(self) -> "LoginRequest":
+        if not self.email and not self.phone:
+            raise ValueError("email or phone is required")
+        return self
 
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     first_name: str
     last_name: Optional[str] = None

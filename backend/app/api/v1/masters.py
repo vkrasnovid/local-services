@@ -153,7 +153,7 @@ async def get_master(master_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         .options(
             joinedload(MasterProfile.user),
             joinedload(MasterProfile.category),
-            selectinload(MasterProfile.services).where(Service.is_active == True),
+            selectinload(MasterProfile.services),
             selectinload(MasterProfile.portfolio_images),
         )
     )
@@ -214,7 +214,7 @@ async def get_master(master_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         price_from=price_from,
         services_count=services_count,
         work_hours=master.work_hours,
-        services=master.services,
+        services=[s for s in master.services if s.is_active],
         portfolio=master.portfolio_images,
         reviews_preview=reviews_preview,
     )

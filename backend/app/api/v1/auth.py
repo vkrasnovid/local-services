@@ -55,6 +55,8 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
                 detail="User with this phone or email already exists",
             )
 
+    role = data.role or "client"
+
     user = User(
         phone=data.phone,
         email=data.email,
@@ -62,9 +64,15 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
         first_name=data.first_name,
         last_name=data.last_name,
         city=data.city,
-        role="client",
+        role=role,
     )
     db.add(user)
+    await db.flush()
+
+    if role == "master":
+        profile = MasterProfile(user_id=user.id)
+        db.add(profile)
+
     await db.commit()
     await db.refresh(user)
     return user
@@ -73,7 +81,13 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.phone == data.phone))
+    from sqlalchemy import or_
+    filters = []
+    if data.email:
+        filters.append(User.email == data.email)
+    if data.phone:
+        filters.append(User.phone == data.phone)
+    result = await db.execute(select(User).where(or_(*filters)))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(data.password, user.password_hash):
