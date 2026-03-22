@@ -22,6 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Pagination } from "@/components/pagination";
 import { Search, Shield, ShieldOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -44,6 +51,10 @@ export default function UsersPage() {
   const [data, setData] = useState<PaginatedResponse<User> | null>(null);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [confirmUser, setConfirmUser] = useState<User | null>(null);
+  const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null);
+  const [newRole, setNewRole] = useState<string>("");
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -104,9 +115,25 @@ export default function UsersPage() {
           ? `${user.first_name} ${user.last_name} unblocked`
           : `${user.first_name} ${user.last_name} blocked`
       );
+      setConfirmUser(null);
       fetchUsers();
     } catch {
       toast.error("Failed to update user status");
+    }
+  };
+
+  const handleRoleChange = async () => {
+    if (!roleDialogUser || !newRole) return;
+    try {
+      await api.patch(`/admin/users/${roleDialogUser.id}`, { role: newRole });
+      toast.success(
+        `${roleDialogUser.first_name} ${roleDialogUser.last_name} role changed to ${newRole}`
+      );
+      setRoleDialogUser(null);
+      setNewRole("");
+      fetchUsers();
+    } catch {
+      toast.error("Failed to change user role");
     }
   };
 
@@ -215,23 +242,35 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant={user.is_active ? "destructive" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleActive(user)}
-                        >
-                          {user.is_active ? (
-                            <>
-                              <ShieldOff className="h-4 w-4 mr-1" />
-                              Block
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="h-4 w-4 mr-1" />
-                              Unblock
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setRoleDialogUser(user);
+                              setNewRole(user.role);
+                            }}
+                          >
+                            Change Role
+                          </Button>
+                          <Button
+                            variant={user.is_active ? "destructive" : "outline"}
+                            size="sm"
+                            onClick={() => setConfirmUser(user)}
+                          >
+                            {user.is_active ? (
+                              <>
+                                <ShieldOff className="h-4 w-4 mr-1" />
+                                Block
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="h-4 w-4 mr-1" />
+                                Unblock
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -249,6 +288,69 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Block/Unblock Confirmation Dialog */}
+      <Dialog open={!!confirmUser} onOpenChange={() => setConfirmUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmUser?.is_active ? "Block User" : "Unblock User"}
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to {confirmUser?.is_active ? "block" : "unblock"}{" "}
+              {confirmUser?.first_name} {confirmUser?.last_name}?
+              {confirmUser?.is_active &&
+                " This user will lose access to the platform immediately."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmUser(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant={confirmUser?.is_active ? "destructive" : "default"}
+              onClick={() => confirmUser && handleToggleActive(confirmUser)}
+            >
+              {confirmUser?.is_active ? "Block" : "Unblock"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Role Dialog */}
+      <Dialog open={!!roleDialogUser} onOpenChange={() => setRoleDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change User Role</DialogTitle>
+            <DialogDescription>
+              Change role for {roleDialogUser?.first_name} {roleDialogUser?.last_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select value={newRole} onValueChange={setNewRole}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="client">Client</SelectItem>
+                <SelectItem value="master">Master</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRoleDialogUser(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRoleChange}
+                disabled={newRole === roleDialogUser?.role}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

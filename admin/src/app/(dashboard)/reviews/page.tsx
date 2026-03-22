@@ -21,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Pagination } from "@/components/pagination";
 import { Eye, EyeOff, Star } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -51,6 +58,8 @@ export default function ReviewsPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const [confirmReview, setConfirmReview] = useState<Review | null>(null);
 
   const fetchReviews = useCallback(async () => {
     setLoading(true);
@@ -89,6 +98,7 @@ export default function ReviewsPage() {
   };
 
   const toggleVisibility = async (review: Review) => {
+    setConfirmReview(null);
     setTogglingId(review.id);
     try {
       await api.patch(`/admin/reviews/${review.id}`, {
@@ -184,7 +194,7 @@ export default function ReviewsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => toggleVisibility(review)}
+                          onClick={() => setConfirmReview(review)}
                           disabled={togglingId === review.id}
                         >
                           {review.is_visible ? (
@@ -213,6 +223,34 @@ export default function ReviewsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Visibility Confirmation Dialog */}
+      <Dialog open={!!confirmReview} onOpenChange={() => setConfirmReview(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmReview?.is_visible ? "Hide Review" : "Show Review"}
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to {confirmReview?.is_visible ? "hide" : "show"}{" "}
+              this review from {confirmReview?.client.first_name}?
+              {confirmReview?.is_visible &&
+                " It will no longer be visible to users on the platform."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmReview(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant={confirmReview?.is_visible ? "destructive" : "default"}
+              onClick={() => confirmReview && toggleVisibility(confirmReview)}
+            >
+              {confirmReview?.is_visible ? "Hide" : "Show"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

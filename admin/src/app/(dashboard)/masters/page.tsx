@@ -44,6 +44,9 @@ export default function MastersPage() {
   const [selectedMaster, setSelectedMaster] = useState<MasterVerification | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
 
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [approveMasterId, setApproveMasterId] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,10 +76,18 @@ export default function MastersPage() {
     setPage(1);
   };
 
-  const handleApprove = async (masterId: string) => {
+  const handleApproveClick = (masterId: string) => {
+    setApproveMasterId(masterId);
+    setApproveDialogOpen(true);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!approveMasterId) return;
     try {
-      await api.patch(`/admin/verifications/${masterId}`, { status: "verified" });
+      await api.patch(`/admin/verifications/${approveMasterId}`, { status: "verified" });
       toast.success("Master approved successfully");
+      setApproveDialogOpen(false);
+      setApproveMasterId(null);
       fetchData();
     } catch {
       toast.error("Failed to approve master");
@@ -161,7 +172,7 @@ export default function MastersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleApprove(master.master_id)}
+                        onClick={() => handleApproveClick(master.master_id)}
                         title="Approve"
                         className="text-green-600 hover:text-green-700"
                       >
@@ -363,8 +374,8 @@ export default function MastersPage() {
                   </Button>
                   <Button
                     onClick={() => {
-                      handleApprove(selectedMaster.master_id);
                       setViewDialogOpen(false);
+                      handleApproveClick(selectedMaster.master_id);
                     }}
                   >
                     <Check className="h-4 w-4 mr-1" />
@@ -374,6 +385,27 @@ export default function MastersPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Master</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to approve this master? They will be able to
+              receive bookings and offer services on the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleApproveConfirm}>
+              Approve
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

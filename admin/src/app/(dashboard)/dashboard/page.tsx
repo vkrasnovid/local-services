@@ -27,14 +27,55 @@ import {
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
-import type { DashboardStats, Transaction, TransactionsResponse } from "@/types";
+import type { DashboardStats, Transaction, TransactionsResponse, Booking, PaginatedResponse } from "@/types";
 
-const generateChartData = () =>
-  Array.from({ length: 30 }, (_, i) => ({
-    date: format(subDays(new Date(), 29 - i), "dd.MM"),
-    bookings: Math.floor(Math.random() * 20) + 5,
-    revenue: Math.floor(Math.random() * 50000) + 10000,
-  }));
+interface ChartDataPoint {
+  date: string;
+  bookings: number;
+  revenue: number;
+}
+
+function buildChartData(
+  bookings: Booking[],
+  transactions: Transaction[]
+): ChartDataPoint[] {
+  const now = new Date();
+  const days: ChartDataPoint[] = [];
+  const bookingsByDay: Record<string, number> = {};
+  const revenueByDay: Record<string, number> = {};
+
+  for (let i = 29; i >= 0; i--) {
+    const key = format(subDays(now, i), "yyyy-MM-dd");
+    bookingsByDay[key] = 0;
+    revenueByDay[key] = 0;
+  }
+
+  for (const b of bookings) {
+    const key = b.created_at.slice(0, 10);
+    if (key in bookingsByDay) {
+      bookingsByDay[key]++;
+    }
+  }
+
+  for (const tx of transactions) {
+    const key = tx.paid_at.slice(0, 10);
+    if (key in revenueByDay) {
+      revenueByDay[key] += tx.amount;
+    }
+  }
+
+  for (let i = 29; i >= 0; i--) {
+    const d = subDays(now, i);
+    const key = format(d, "yyyy-MM-dd");
+    days.push({
+      date: format(d, "dd.MM"),
+      bookings: bookingsByDay[key] ?? 0,
+      revenue: revenueByDay[key] ?? 0,
+    });
+  }
+
+  return days;
+}
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   succeeded: "default",
@@ -56,19 +97,27 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [chartData] = useState(generateChartData);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [statsRes, txRes] = await Promise.all([
+        const since = format(subDays(new Date(), 30), "yyyy-MM-dd");
+        const [statsRes, txRes, bookingsRes, txChartRes] = await Promise.all([
           api.get<DashboardStats>("/admin/dashboard"),
           api.get<TransactionsResponse>("/admin/transactions", {
             params: { page_size: 10 },
           }),
+          api.get<PaginatedResponse<Booking>>("/admin/bookings", {
+            params: { page_size: 500, since },
+          }),
+          api.get<TransactionsResponse>("/admin/transactions", {
+            params: { page_size: 500, since },
+          }),
         ]);
         setStats(statsRes.data);
         setTransactions(txRes.data.items);
+        setChartData(buildChartData(bookingsRes.data.items, txChartRes.data.items));
       } catch {
         toast.error("Failed to load dashboard data");
       } finally {
