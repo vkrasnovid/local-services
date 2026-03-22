@@ -95,6 +95,9 @@ class BookingsApi {
   Future<Response> getTimeSlots(String masterId, String date) =>
       _client.dio.get('/masters/$masterId/slots', queryParameters: {'date': date});
 
+  Future<Response> pay(String id) =>
+      _client.dio.post('/bookings/$id/pay');
+
   Future<Response> getMasterBookings({String? status, int page = 1}) =>
       _client.dio.get('/bookings/master', queryParameters: {
         if (status != null) 'status': status,
