@@ -27,6 +27,7 @@ from app.schemas.master import (
     ServiceResponse,
     ServiceUpdate,
 )
+from app.schemas.payment import PayoutCreate
 
 router = APIRouter()
 
@@ -528,12 +529,12 @@ async def get_balance(
 
 @router.post("/me/payout", status_code=status.HTTP_201_CREATED)
 async def create_payout(
-    data: dict,
+    data: PayoutCreate,
     user: User = Depends(require_role("master")),
     db: AsyncSession = Depends(get_db),
 ):
-    amount = data.get("amount")
-    card_last4 = data.get("card_last4")
+    amount = data.amount
+    card_last4 = data.card_last4
 
     if not amount or amount <= 0:
         raise HTTPException(
