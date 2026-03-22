@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/models/chat.dart';
 
@@ -51,8 +53,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       final token = await ref.read(apiClientProvider).getAccessToken();
       if (token == null) return;
 
-      final uri = Uri.parse('ws://10.0.2.2:8000/ws/chat?token=$token');
-      _channel = WebSocketChannel.connect(uri);
+      final uri = Uri.parse('${AppConfig.wsUrl}/ws/chat');
+      _channel = IOWebSocketChannel.connect(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       setState(() => _isConnected = true);
 

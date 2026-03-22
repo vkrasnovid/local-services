@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../config/app_config.dart';
 import 'api_interceptors.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   late final Dio dio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();

@@ -1,38 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../shared/widgets/app_button.dart';
 
-class PaymentScreen extends StatefulWidget {
+class PaymentScreen extends ConsumerStatefulWidget {
   final String bookingId;
 
   const PaymentScreen({super.key, required this.bookingId});
 
   @override
-  State<PaymentScreen> createState() => _PaymentScreenState();
+  ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
+class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _processing = true;
   bool _success = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _simulatePayment();
+    _processPayment();
   }
 
-  Future<void> _simulatePayment() async {
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      HapticFeedback.mediumImpact();
-      setState(() {
-        _processing = false;
-        _success = true;
-      });
+  Future<void> _processPayment() async {
+    setState(() {
+      _processing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final bookingsApi = ref.read(bookingsApiProvider);
+      await bookingsApi.pay(widget.bookingId);
+
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _processing = false;
+          _success = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _success = false;
+          _errorMessage = e.toString();
+        });
+      }
     }
   }
 
@@ -101,21 +121,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-            const SizedBox(height: AppSpacing.base),
-            Text('Оплата не прошла', style: AppTextStyles.h2),
-            const SizedBox(height: AppSpacing.xl),
-            AppButton(
-              label: 'Попробовать снова',
-              onPressed: () => setState(() {
-                _processing = true;
-                _simulatePayment();
-              }),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: AppSpacing.base),
+              Text('Оплата не прошла', style: AppTextStyles.h2),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  _errorMessage!,
+                  style: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: AppSpacing.xl),
+              AppButton(
+                label: 'Попробовать снова',
+                onPressed: _processPayment,
+              ),
+            ],
+          ),
         ),
       ),
     );
