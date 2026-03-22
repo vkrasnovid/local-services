@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PaymentResponse(BaseModel):
@@ -19,8 +19,8 @@ class PaymentResponse(BaseModel):
 
 
 class PayoutCreate(BaseModel):
-    amount: float
-    card_last4: str
+    amount: float = Field(..., gt=0)
+    card_last4: str = Field(..., pattern=r"^\d{4}$")
 
 
 class PayoutResponse(BaseModel):

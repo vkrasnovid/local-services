@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -53,6 +53,17 @@ class Payment(BaseModel):
     booking: Mapped["Booking"] = relationship(
         "Booking", back_populates="payment"
     )
+
+    # Transient attribute for passing confirmation_url in responses
+    _confirmation_url: ClassVar[Optional[str]] = None
+
+    @property
+    def confirmation_url(self) -> Optional[str]:
+        return self._confirmation_url
+
+    @confirmation_url.setter
+    def confirmation_url(self, value: str) -> None:
+        self._confirmation_url = value
 
     def __repr__(self) -> str:
         return f"<Payment {self.id} status={self.status}>"

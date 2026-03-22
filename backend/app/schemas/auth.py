@@ -2,16 +2,26 @@ from datetime import datetime
 from uuid import UUID
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+
+import re
 
 
 class RegisterRequest(BaseModel):
     phone: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     password: str = Field(..., min_length=8)
     first_name: str
     last_name: Optional[str] = None
     city: Optional[str] = None
+
+    @model_validator(mode="after")
+    def require_phone_or_email(self):
+        if not self.phone and not self.email:
+            raise ValueError("Phone or email is required")
+        if self.phone and not re.fullmatch(r"\+?\d{7,15}", self.phone):
+            raise ValueError("Phone must contain 7-15 digits, optionally starting with +")
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -62,6 +72,11 @@ class UserUpdateRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class FcmTokenRequest(BaseModel):
+    token: str
+    device_info: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):
